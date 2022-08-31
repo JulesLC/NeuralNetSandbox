@@ -8,8 +8,8 @@ sizes = [2,3,1]
 initA = 0
 initB = 1
 
-numberofEpochs = 1
-lr = 3.0 #learningn rate
+numberofEpochs = 5000
+lr = 1.0 #learningn rate
 
 trainingInput = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
 trainingOutput = [[0.0], [1.0], [1.0], [0.0]]
@@ -66,14 +66,6 @@ def feedforward_hidden_to_out(previous_layer_activations, weights_hidden_output,
     return activation_out
 
 
-net = initiate()
-w_i2h = net[3]
-b_i2h = net[4]
-w_h2o = net[5]
-b_h2o = net[6]
-
-print("Intialized Net: ", net)
-print("------------------------------")
 
 def test(data, weights):
     newtest = []
@@ -107,130 +99,132 @@ def train(net, trainingInput, trainingOutput):
             #print("activations last layer: ", aL)
             #print("_______________________________")
 
-            # print("activations into last", ai)
-            gradientError = MeasureErrorLastLayer(ai, aL, output, w_h2o, b_h2o)
+            print("W_h2o", w_h2o)
+            #gradientError = MeasureErrorLastLayer(ai, aL, output, w_h2o, b_h2o)
+            #BP(aIn, aL, error_L, inputs, i2h_weights, h2o_weights, i2h_bias, h2o_bias):
+            deltas = BackPropogate(ai, aL, input, output, w_i2h, w_h2o, b_i2h, b_h2o)
 
-            deltas = BackPropogate(ai, aL, gradientError, input, w_i2h, b_i2h)
-            print("error at hidden layer", deltas[0])
 
-            updatelast = GradientDescent(deltas, w_i2h, b_i2h, w_h2o, b_h2o, len(trainingInput), lr)
-            #updatehidden = GradientDescent(HiddenLayerError, w_i2h, b_i2h, len(trainingInput), lr)
+            update = GradientDescent(deltas, w_i2h, b_i2h, w_h2o, b_h2o, len(trainingInput), lr)
 
-            #set the adjusted
-            w_h2o = updatelast[0]
-            #b_h2o = updatelast[1]
-
-            #w_i2h = updatehidden[0]
-            #b_i2h = updatelast[1]
-
-            print("updated: ", updatelast)
+            print("updated: ", update)
+            #create new new with adjusted weights and bias
+            net = updateNet(update, net)
             print("_______________________________")
-
         return net
 
 
 
-def MeasureErrorLastLayer(a_h, aL, y, h_weights, l_bias):
+def MeasureErrorLastLayer(ai, ao, y, h_weights, l_bias):
     # make a vector of errors from a whole layer, for each neuron j in the layer l
     # error is ej = cost/delta z, delta z a slight perturbation versions of the weighted inputs (z) coming into the neuron j
-    # get output activation from hidden layer (aL) by feeding forward again
-    a_h = np.asarray(a_h)
+    # get output activations from hidden layer to output node (aL) by feeding forward again
+    ai = np.asarray(ai)
     h_weights = np.asarray(h_weights)
+    print("ai", ai, "h_wights", h_weights)
     # z is the weighted input the last node (output node)
-    z = np.dot(a_h, h_weights) + l_bias
+    z = np.dot(ai, h_weights) + l_bias
     aL_check = sigmoid(z)
     #confusion here: use activation at last layer or use z into last layer, i think use aL, z used to backprop
-    #print("check activation into Last Layer", aL_check, aL, z)
+    print("check output activation into Last Layer", aL_check, ao, z)
 
-    Cost = y-aL
+    Cost = y-ao
 
-    gradient = np.dot(Cost, sigmoid_prime(z)) ## here could multiply by learning rate?
-    print("a_h", a_h)
-    print("h_weights", h_weights)
-    print("z", z)
-    print("cost gradient", gradient)
+    error_L= np.dot(Cost, sigmoid_prime(z)) ## here could multiply by learning rate?
+
+    print("cost gradient", error_L)
     print("----------------end error measure --------------------------")
 
-    return gradient
+    return error_L
 
 
-def BackPropogate(aIn, aL, gradient, inputs, i_weights, h_bias):
+def BackPropogate(aIn, aL, inputs, y, i2h_weights, h2o_weights, i2h_bias, h2o_bias):
     # get the cost gradient from the measure
     # LastLayer Back Prop: this is essentially the first back prop pass
-    # Transpose of last layer activations
-    al_T = aL.transpose()
+    # Transpose of last layer weights
+    w_into_o = w_h2o.transpose()
 
-    # get deltas to adjust by
-    dCdw = al_T * gradient  # * learning rate here? in the future this might need to np.dot if there are more output nodes
-    dCdb = gradient
-    print("dcdw", dCdw)
+    #get zs
+    z_into_hidden = np.dot(inputs, i2h_weights) + i2h_bias # this has to be an np.dot because we sum 6 weights into 3 weighted inputs
+    z_into_out = np.dot(aIn, h2o_weights) + h2o_bias
 
-    #For last layer:
-    print("iweight", i_weights)
-    #get z of the inputs into the hidden layer
-    z_into_hidden = np.dot(inputs, i_weights) + h_bias # this has to be an np.dot because we sum 6 weights into 3 weighted inputs
+    #activation at output node
+    ao = sigmoid(z_into_out)
+    Cost = y-ao
 
-    #transpose the input to hidden weight matrix, dot product with errors
-    i_weights_T = i_weights.transpose()
-    print("iw_t", i_weights_T)
+    error_L = np.dot(Cost, sigmoid_prime(z_into_out)) ## here could multiply by learning rate?
 
-    # to make the np.dot matrix work out ** I think ** I can just do this as a 2d array, but then it might double up as it sums?
-    #get next deltas going in to hidden layer:
-    dCdw = [dCdw, dCdw]
-    print("dcdw", dCdw)
+    #get deltas for last layer
+    dcdw_o = sigmoid(z_into_out) * error_L
+    dcdb_o = error_L
 
-    delta_i = np.dot(i_weights_T, dCdw) * sigmoid_prime(z_into_hidden)
-    print("deltas_i", delta_i)
+    #back prop to middle layer
+    # δl = ((wl + 1)T * δ l+1) ⊙ σ′(zl),
+    error_hidden = np.dot(w_into_o, error_L) * sigmoid_prime(z_into_hidden)
 
-    #activations tranpose
-    deltaW_i = np.dot(delta_i, aIn.transpose())
-    deltaB_i = delta_i
+    # get deltas to adjust next layer by
+    dcdw_h = sigmoid(z_into_hidden).transpose() * error_hidden  # * tranpose of aIN? correct aIns?
+    dcdb_h = error_hidden
 
-    layerErrors = [dCdw, dCdb, deltaW_i, deltaB_i]
+    layerErrors = [dcdw_o, dcdb_o, dcdw_h, dcdb_h]
+
     return layerErrors
 
-def GradientDescent(layerErrors, w_i2o, b_i2o, w_h2o, b_h2o, batch_size, lr):
+def GradientDescent(layerErrors, w_i2h, b_i2h, w_h2o, b_h2o, batch_size, lr):
     #update the weights by the deltas
     # new_weights = weights + deltas[0] * learningRate
     # new_bias = bias + deltas[1] * learningRate
 
     print("layer errors++++++++++++++")
-    print(layerErrors)
-    dCdw = layerErrors[0]
-    print("dcdw", dCdw)
-    dCdb = layerErrors[1]
-    delta_h_w = layerErrors[2]
-    print("delta_h_w", delta_h_w)
-    delta_h_b = layerErrors[3]
+    dw_o = layerErrors[0]
+    db_o = layerErrors[1]
+    dw_i = layerErrors[2]
+    db_i = layerErrors[3]
+    print(dw_o, db_o, dw_i, db_i)
     print("+++++++++++++++++++++++++")
 
+    new_weights_o = []
+    new_weights_h = []
+    new_bias_o = []
+    new_bias_h = []
 
-    new_weights = []
-    new_bias = []
-
-    for x in range(batch_size):         #might need to randomize/batch the training data sampling here
+    #print("www", w_h2o) = 3
+    #print("www2", w_i2o) = 6
+    for x in range(batch_size):  # might need to randomize/batch the training data sampling here
         # update weights output layer
-        for d_weight, w in zip(dCdw, w_h2o):
-            new_weight = delta_h_w + w #summation
-            nw = w-(lr/batch_size) * new_weight #average out
-            #w_h2o = nw
+        for w in w_h2o:
+            summed_l1 = dw_o + w  # summation
+            nw = w - (lr / batch_size) * summed_l1 # average out
+        new_weights_o.append(nw)
         # update weights at hidden layer
-        for w in w_i2o: # this should look like a 6 by 3
-            for dw in delta_h_b:
-                nw = w+dw
-            new_weights.append(nw)
-            print("NEW", new_weights)
+        for w in w_i2h:  # this should look like a 6 by 3
+            summed_l2 = w + dw_i
+            nw_1 = w - (lr / batch_size) * summed_l2 # average out
+        new_weights_h.append(nw_1)
 
+        #same for bias
+        #update bias at output
+        #print("ddddelta bias", dCdb, "bbbb", b_h2o ) # since there is only one I can hard code with no for loop, if there are more outputs this will need to for loop
+        b = b_h2o
+        summedb_l1 = db_o + b  # summation
+        nb = b - (lr / batch_size) * summedb_l1 # average out
+        new_bias_o.append(nb)
+        # update bias at hidden layer
+        for bi in b_i2h:  # this should look like a 6 by 3
+            summedb_l2 = bi + db_i
+            b_1 =  bi - (lr / batch_size) * summedb_l2 # average out
+        new_bias_h.append(b_1)
 
-       # for b_delta, b in zip(delta_L_b, biases):
-       #     nb = b-(lr/batch_size) * b_delta
-       # new_bias.append(nb)
-        update = [new_weights, new_bias]
+    update = [new_weights_h, new_bias_h, new_weights_o, new_bias_o]
+    print("updates ", [i for i in update])
     return update
 
-
-
-
+def updateNet(update, net):
+    net[3] = update[0]
+    net[4] = update[1]
+    net[5] = update[2]
+    net[6] = update[3]
+    return net
 
 #### Miscellaneous functions
 def sigmoid(z):
@@ -259,6 +253,15 @@ xweights = [[5, 5, 5], [5, 5, 5]]
 print("----- test")
 print("   test", test(xdata, xweights))
 print("________________________________")
+
+net = initiate()
+w_i2h = net[3]
+b_i2h = net[4]
+w_h2o = net[5]
+b_h2o = net[6]
+
+print("Intialized Net: ", net)
+print("------------------------------")
 
 trained_net = train(net, trainingInput, trainingOutput)
 print("net: ", net)
