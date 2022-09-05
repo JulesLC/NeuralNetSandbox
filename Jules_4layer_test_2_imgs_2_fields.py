@@ -1,7 +1,9 @@
 import numpy as np
 import pylab as pl
 import matplotlib.pyplot as plt
+import MLP as mlp
 
+'''
 def sigmoid(z):
     """The sigmoid function."""
     return 1.0/(1.0+np.exp(-z))
@@ -16,7 +18,6 @@ def sigmoids(z):
     for i in range(len(z)):
         zs[i] = sigmoid(z[i])
     return zs
-
 
 class MultiLayerPerceptron():
     def __init__(self, nI,nJ,nQ,nK):
@@ -78,85 +79,77 @@ class MultiLayerPerceptron():
             self.K = self.getActivation(self.nK, self.nQ, self.Qs, self.WQK)
             self.Ks = sigmoids(self.K)
 
+            if(lr>0.0):
+                # backward pass from output layer
+                outputDeltas = np.zeros(self.nK)
+                for k in range(self.nK):
+                    outputDeltas[k] = -(target[k] - self.Ks[k])
 
-            # backward pass from output layer
-            outputDeltas = np.zeros(self.nK)
-            for k in range(self.nK):
-                outputDeltas[k] = -(target[k] - self.Ks[k])
+                deltasQ = self.getBackward(self.nK, self.nQ, outputDeltas, self.WQK, self.Q)
 
-            deltasQ = self.getBackward(self.nK, self.nQ, outputDeltas, self.WQK, self.Q)
+                deltasJ = self.getBackward(self.nQ, self.nJ, deltasQ, self.WJQ, self.J)
 
-            deltasJ = self.getBackward(self.nQ, self.nJ, deltasQ, self.WJQ, self.J)
+                # update weight/biases
 
-            # update weight/biases
+                self.WQK = self.updateWeight(self.nK, self.nQ, self.WQK, self.Qs, outputDeltas, lr)
 
-            self.WQK = self.updateWeight(self.nK, self.nQ, self.WQK, self.Qs, outputDeltas, lr)
+                self.WJQ = self.updateWeight(self.nQ, self.nJ, self.WJQ, self.Js, deltasQ, lr)
 
-            self.WJQ = self.updateWeight(self.nQ, self.nJ, self.WJQ, self.Js, deltasQ, lr)
+                self.WIJ = self.updateWeight(self.nJ, self.nI, self.WIJ, input, deltasJ, lr)
 
-            self.WIJ = self.updateWeight(self.nJ, self.nI, self.WIJ, input, deltasJ, lr)
-
-            # track errors
-            Error = np.sum(outputDeltas ** 2)
-            self.Errors = np.hstack([self.Errors, Error])
-
+                # track errors
+                Error = np.sum(outputDeltas ** 2)
+                self.Errors = np.hstack([self.Errors, Error])
+'''
 
 #running
 #Load Data
 D = np.load('img1.npz')
+D2 = np.load('img2.npz')
 X = D['X']
 n = X.shape[0]
 x = X[:,0]
 y = X[:,1]
 maxdim = np.max([np.max(x),np.max(y)])
-x = x/maxdim
-y = y/maxdim
+x = x/maxdim # TODO: make sure this is proportionally resizing the images, double check that its staying the same across exported sizes
+y = y/maxdim #
 
 #print(X)
 
 #Inputs = [[0.0, 0.0, 1], [0.0, 1.0, 1], [1.0, 0.0, 1], [1.0, 1.0, 1]]
 #Targets = [[0.0], [1.0], [1.0], [0.0]]
 
-M = MultiLayerPerceptron(2,15,15,1)
+M = mlp.MultiLayerPerceptron(2,15,15,3)
 T = 1000000
+#T = 10
 
 for t in range(T):
-    r = int(np.floor(np.random.rand() * n))
+    r = int(np.floor(np.random.rand() * n)) #TODO:here we need to add the random draw from one and the other image, each random draw will also set a context node on or off
     input = [x[r],y[r]]
-    target = [X[r,2]]
+    tar = [X[r,2]]   #TODO:in here is where we add the code for flag 1 being the output of 0, 0, 1 (a1 off, s1 off, v1 on)
+    target = [0,0,0]
+    if(tar==1):
+        target=[1,0,0]
+    elif(tar==2):
+        target = [0, 1, 0]
+    elif (tar == 3):
+        target = [0, 0, 1]
+    if((t%100)==0):
+        print("progress: ", t/T)
+
     M.update(0.5, input, target)
 
 print('Finished training...')
 
-R = []
+R = np.zeros([1,3])
 for i in range(n):
     input = np.hstack([x[i],y[i]])
-    M.update(0.0, input, [0.0])
-    R = np.hstack([R, M.Ks[0]])
+    M.update(0.0, input, [0.0,0.0,0.0])
+    R = np.vstack([R, M.Ks])
 
 print('Finished testing...')
 
 np.savez('testrun.npz',x=x,y=y,R=R,errs=M.Errors)
-
-F = pl.figure()
-f = F.add_subplot(121)
-f.plot(M.Errors)
-
-f = F.add_subplot(122)
-for i in range(n):
-    if(R[i]>0.5):
-        f.plot(x[i],y[i],'.',color='k')
-
-pl.show()
-
-'''
-plt.plot(M.Errors)
-plt.title('Cost over Epochs')
-plt.xlabel('Epochs')
-plt.ylabel('Cost')
-plt.show()
-'''
-
 
 
 
