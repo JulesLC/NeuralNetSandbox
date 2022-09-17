@@ -154,7 +154,7 @@ int main(int argc, char **argv){
         if(context){
             M.update(0.05, input, target, firstnode); //sending 0 to disable the node at index 0, for no context nodes vector<int> (0) is no element (0)
         } else {
-            M.update(0.07, input, target, secondnode);
+            M.update(0.05, input, target, secondnode);
         }
         
     }
@@ -173,8 +173,8 @@ int main(int argc, char **argv){
         
         input[0] = x1_s[r];
         input[1] = y1_s[r];
-        vector<int> firstnodeL = {1, 2};
-        M.update(0.00, input, target, firstnodeL);
+        vector<int> firstnode(1, 0);
+        M.update(0.00, input, target, firstnode);
         outNode1.push_back(M.Ks[0]);
         outNode2.push_back(M.Ks[1]);
         outNode3.push_back(M.Ks[2]);
@@ -193,9 +193,9 @@ int main(int argc, char **argv){
         
         input[0] = x2_s[r];
         input[1] = y2_s[r];
-        
-        vector<int> secondnodeL = {0, 2};
-        M.update(0.00, input, target, secondnodeL);
+
+        vector<int> secondnode(1, 1);
+        M.update(0.00, input, target, secondnode);
         outNodeA1.push_back(M.Ks[0]);
         outNodeA2.push_back(M.Ks[1]);
         outNodeA3.push_back(M.Ks[2]);
@@ -212,7 +212,7 @@ int main(int argc, char **argv){
         vector<double> input(2, 0.0);
         vector<double> target(3, 0.0);
         
-        input[0] = x2_s[r]; //how do I use both as inputs here?
+        input[0] = x1_s[r]; //how do I use both as inputs here?
         input[1] = y2_s[r];
         
         M.update(0.00, input, target, vector<int> (0) ); //no element (0) all nodes enabled
