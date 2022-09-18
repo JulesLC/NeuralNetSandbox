@@ -104,7 +104,7 @@ int main(int argc, char **argv){
     int T = conf.getInt("T", 1000);
     int nHiddenJ = conf.getInt("nHiddenJ", 3);
     int nHiddenQ = conf.getInt("nHiddenQ", 3);
-    
+    //int learningRate = conf.getFloat("learningRate", 0.03);
     //to run: ./model ../config.json logs
     
     MLP M(2,nHiddenJ,nHiddenQ,3);
@@ -152,11 +152,10 @@ int main(int argc, char **argv){
         }
         
         if(context){
-            M.update(0.05, input, target, firstnode); //sending 0 to disable the node at index 0, for no context nodes vector<int> (0) is no element (0)
+            M.update(0.07, input, target, firstnode); //sending 0 to disable the node at index 0, for no context nodes vector<int> (0) is no element (0)
         } else {
-            M.update(0.05, input, target, secondnode);
-        }
-        
+            M.update(0.07, input, target, secondnode);
+        }  
     }
     std::cout<<"Finished Training"<<std::endl;
     
@@ -202,7 +201,7 @@ int main(int argc, char **argv){
         
     }
     
-    //Interpolate 1 and 2
+    //Interpolate 1 and 2 ancestor
     vector<double> outNodeB1(0.0);
     vector<double> outNodeB2(0.0);
     vector<double> outNodeB3(0.0);
@@ -214,18 +213,43 @@ int main(int argc, char **argv){
         
         input[0] = x1_s[r]; //how do I use both as inputs here?
         input[1] = y2_s[r];
+        //input[2] = x2_s[r];
+        //input[3] = y2_s[r];
         
-        M.update(0.00, input, target, vector<int> (0) ); //no element (0) all nodes enabled
+        M.update(0.00, input, target, vector<int> (0) ); //no element (0) all nodes enabled, ancestor
         outNodeB1.push_back(M.Ks[0]);
         outNodeB2.push_back(M.Ks[1]);
         outNodeB3.push_back(M.Ks[2]);
         
     }
     
+    //Interpolate 1 and 2 progeny
+     vector<double> outNodeC1(0.0);
+     vector<double> outNodeC2(0.0);
+     vector<double> outNodeC3(0.0);
+     
+     
+     for (int r = 0; r<x2.size(); r++){
+         vector<double> input(2, 0.0);
+         vector<double> target(3, 0.0);
+         
+         vector<int> bothNodes;
+         bothNodes.push_back(0);
+         bothNodes.push_back(1);
+         
+         input[0] = x1_s[r]; //how do I use both as inputs here?
+         input[1] = y2_s[r];
+         //input[2] = x2_s[r];
+         //input[3] = y2_s[r];
+         
+         M.update(0.00, input, target, bothNodes); //no element (0) all nodes enabled, ancestor
+         outNodeC1.push_back(M.Ks[0]);
+         outNodeC2.push_back(M.Ks[1]);
+         outNodeC3.push_back(M.Ks[2]);
+         
+     }
     
     std::cout<<"Finished Testing..."<< std::endl;
-    
-    
     //Save output errors
     {
         std::stringstream fname;
@@ -279,7 +303,7 @@ int main(int argc, char **argv){
         path.str("");path.clear();path << "/y2";
         dataout.add_contained_vals (path.str().c_str(), y2);
         
-        //interpolation map
+        //interpolation map ancestor
         path.str("");path.clear();path << "/outputB1";
         dataout.add_contained_vals (path.str().c_str(), outNodeB1);
         
@@ -288,6 +312,17 @@ int main(int argc, char **argv){
         
         path.str("");path.clear();path << "/outputB3";
         dataout.add_contained_vals (path.str().c_str(), outNodeB3);
+        
+        //interpolation map progeny
+          path.str("");path.clear();path << "/outputC1";
+          dataout.add_contained_vals (path.str().c_str(), outNodeB1);
+          
+          path.str("");path.clear();path << "/outputC2";
+          dataout.add_contained_vals (path.str().c_str(), outNodeB2);
+          
+          path.str("");path.clear();path << "/outputC3";
+          dataout.add_contained_vals (path.str().c_str(), outNodeB3);
+        
         
         //Q: which sets to use for inter?
         /*
